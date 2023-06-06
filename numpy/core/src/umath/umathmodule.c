@@ -282,6 +282,9 @@ int initumath(PyObject *m)
     ADDCONST(ERR_LOG);
     ADDCONST(ERR_DEFAULT);
 
+    ADDCONST(ACCURACY_LOW);
+    ADDCONST(ACCURACY_HIGH);
+
     ADDCONST(SHIFT_DIVIDEBYZERO);
     ADDCONST(SHIFT_OVERFLOW);
     ADDCONST(SHIFT_UNDERFLOW);
@@ -354,6 +357,23 @@ int initumath(PyObject *m)
     }
 
     if (init_string_ufuncs(d) < 0) {
+        return -1;
+    }
+
+    /*
+     * Initialize the context-local errstate handler
+     */
+    PyObject *res = PyList_New(4);
+    if (res == NULL) {
+        return -1;
+    }
+    PyList_SET_ITEM(res, 0, PyLong_FromLong(NPY_BUFSIZE));
+    PyList_SET_ITEM(res, 1, PyLong_FromLong(UFUNC_ERR_DEFAULT));
+    PyList_SET_ITEM(res, 2, Py_None); Py_INCREF(Py_None);
+    PyList_SET_ITEM(res, 3, PyLong_FromLong(UFUNC_ACCURACY_HIGH));
+
+    err_handler = PyContextVar_New("errstate", res);
+    if (err_handler == NULL) {
         return -1;
     }
 

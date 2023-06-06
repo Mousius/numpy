@@ -156,17 +156,12 @@ fail:
 NPY_NO_EXPORT PyObject *
 get_global_ext_obj(void)
 {
-    PyObject *thedict;
     PyObject *ref = NULL;
 
 #if USE_USE_DEFAULTS==1
     if (PyUFunc_NUM_NODEFAULTS != 0) {
 #endif
-        thedict = PyThreadState_GetDict();
-        if (thedict == NULL) {
-            thedict = PyEval_GetBuiltins();
-        }
-        ref = PyDict_GetItemWithError(thedict, npy_um_str_pyvals_name);
+        ref = ufunc_geterr(NULL, NULL);
 #if USE_USE_DEFAULTS==1
     }
 #endif
@@ -206,9 +201,9 @@ _extract_pyvals(PyObject *ref, const char *name, int *bufsize,
         return 0;
     }
 
-    if (!PyList_Check(ref) || (PyList_GET_SIZE(ref)!=3)) {
+    if (!PyList_Check(ref) || (PyList_GET_SIZE(ref)!=4)) {
         PyErr_Format(PyExc_TypeError,
-                "%s must be a length 3 list.", UFUNC_PYVALS_NAME);
+                "%s must be a length 4 list.", UFUNC_PYVALS_NAME);
         return -1;
     }
 

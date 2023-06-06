@@ -10,7 +10,7 @@ import contextvars
 from .._utils import set_module
 from .umath import (
     UFUNC_BUFSIZE_DEFAULT,
-    ERR_IGNORE, ERR_WARN, ERR_RAISE, ERR_CALL, ERR_PRINT, ERR_LOG, ERR_DEFAULT,
+    ERR_IGNORE, ERR_WARN, ERR_RAISE, ERR_CALL, ERR_PRINT, ERR_LOG, ERR_DEFAULT, ACCURACY_LOW, ACCURACY_HIGH
     SHIFT_DIVIDEBYZERO, SHIFT_OVERFLOW, SHIFT_UNDERFLOW, SHIFT_INVALID,
 )
 from . import umath
@@ -26,12 +26,14 @@ _errdict = {"ignore": ERR_IGNORE,
             "call": ERR_CALL,
             "print": ERR_PRINT,
             "log": ERR_LOG}
+_accdict = {"high": ACCURACY_HIGH,
+            "low": ACCURACY_LOW}
 
 _errdict_rev = {value: key for key, value in _errdict.items()}
 
 
 @set_module('numpy')
-def seterr(all=None, divide=None, over=None, under=None, invalid=None):
+def seterr(all=None, divide=None, over=None, under=None, invalid=None, accuracy=None):
     """
     Set how floating-point errors are handled.
 
@@ -107,16 +109,18 @@ def seterr(all=None, divide=None, over=None, under=None, invalid=None):
     """
 
     pyvals = umath.geterrobj()
-    old = geterr()
+    old_err = geterr()
 
     if divide is None:
-        divide = all or old['divide']
+        divide = all or old_err['divide']
     if over is None:
-        over = all or old['over']
+        over = all or old_err['over']
     if under is None:
-        under = all or old['under']
+        under = all or old_err['under']
     if invalid is None:
-        invalid = all or old['invalid']
+        invalid = all or old_err['invalid']
+    if accuracy is not None:
+        pyvals[3] = _accdict[accuracy]
 
     maskvalue = ((_errdict[divide] << SHIFT_DIVIDEBYZERO) +
                  (_errdict[over] << SHIFT_OVERFLOW) +
@@ -124,8 +128,9 @@ def seterr(all=None, divide=None, over=None, under=None, invalid=None):
                  (_errdict[invalid] << SHIFT_INVALID))
 
     pyvals[1] = maskvalue
+
     umath.seterrobj(pyvals)
-    return old
+    return old_err
 
 
 @set_module('numpy')
@@ -442,15 +447,6 @@ class errstate(contextlib.ContextDecorator):
         seterr(**self.oldstate)
         if self.call is not _Unspecified:
             seterrcall(self.oldcall)
-
-
-def _setdef():
-    defval = [UFUNC_BUFSIZE_DEFAULT, ERR_DEFAULT, None]
-    umath.seterrobj(defval)
-
-
-# set the default values
-_setdef()
 
 
 NO_NEP50_WARNING = contextvars.ContextVar("_no_nep50_warning", default=False)

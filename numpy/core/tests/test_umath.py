@@ -1486,6 +1486,8 @@ class TestSpecialFloats:
     @pytest.mark.skipif(IS_WASM, reason="fp errors don't work in wasm")
     @pytest.mark.parametrize('dtype', ['e', 'f', 'd', 'g'])
     def test_sincos_values(self, dtype):
+        import pdb
+        pdb.set_trace()
         with np.errstate(all='ignore'):
             x = [np.nan, np.nan, np.nan, np.nan]
             y = [np.nan, -np.nan, np.inf, -np.inf]

@@ -238,6 +238,9 @@ typedef struct _tagPyUFuncObject {
 #define UFUNC_ERR_PRINT  4
 #define UFUNC_ERR_LOG    5
 
+#define UFUNC_ACCURACY_HIGH     0
+#define UFUNC_ACCURACY_LOW      1
+
         /* Python side integer mask */
 
 #define UFUNC_MASK_DIVIDEBYZERO 0x07

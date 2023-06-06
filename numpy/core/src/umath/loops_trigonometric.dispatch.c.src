@@ -2,7 +2,7 @@
  ** $maxopt baseline
  ** (avx2 fma3) avx512f
  ** vsx2 vsx3 vsx4
- ** neon_vfpv4
+ ** ASIMDFHM
  ** vxe vxe2
  **/
 #include "numpy/npy_math.h"
@@ -10,6 +10,11 @@
 #include "loops_utils.h"
 #include "loops.h"
 #include "fast_loop_macros.h"
+
+
+#define UFUNC_ACCURACY_HIGH     0
+#define UFUNC_ACCURACY_LOW      1
+
 /*
  * TODO:
  * - use vectorized version of Payne-Hanek style reduction for large elements or
@@ -389,29 +394,31 @@ NPY_NO_EXPORT void NPY_CPU_DISPATCH_CURFX(DOUBLE_@func@)
 (char **args, npy_intp const *dimensions, npy_intp const *steps, void *NPY_UNUSED(data))
 {
 #if NPY_SIMD_F64 && NPY_SIMD_FMA3
-    const double *src = (double*)args[0];
-          double *dst = (double*)args[1];
-    const int lsize = sizeof(src[0]);
-    const npy_intp ssrc = steps[0] / lsize;
-    const npy_intp sdst = steps[1] / lsize;
-    npy_intp len = dimensions[0];
-    assert(len <= 1 || (steps[0] % lsize == 0 && steps[1] % lsize == 0));
+    if (PyUFunc_GetAccuracy() != UFUNC_ACCURACY_HIGH) {
+        const double *src = (double*)args[0];
+            double *dst = (double*)args[1];
+        const int lsize = sizeof(src[0]);
+        const npy_intp ssrc = steps[0] / lsize;
+        const npy_intp sdst = steps[1] / lsize;
+        npy_intp len = dimensions[0];
+        assert(len <= 1 || (steps[0] % lsize == 0 && steps[1] % lsize == 0));
 
-    if (is_mem_overlap(src, steps[0], dst, steps[1], len) ||
-        !npyv_loadable_stride_f64(ssrc) || !npyv_storable_stride_f64(sdst)
-    ) {
-        for (; len > 0; --len, src += ssrc, dst += sdst) {
-            simd_@func@_f64(src, 1, dst, 1, 1);
+        if (is_mem_overlap(src, steps[0], dst, steps[1], len) ||
+            !npyv_loadable_stride_f64(ssrc) || !npyv_storable_stride_f64(sdst)
+        ) {
+            for (; len > 0; --len, src += ssrc, dst += sdst) {
+                simd_@func@_f64(src, 1, dst, 1, 1);
+            }
+        } else {
+            simd_@func@_f64(src, ssrc, dst, sdst, len);
         }
-    } else {
-        simd_@func@_f64(src, ssrc, dst, sdst, len);
+        return;
     }
-#else
+#endif
     UNARY_LOOP {
         const npy_double in1 = *(npy_double *)ip1;
         *(npy_double *)op1 = npy_@func@(in1);
     }
-#endif
 }
 /**end repeat**/
 

@@ -93,6 +93,11 @@ typedef struct {
     int out_i;
 } _ufunc_context;
 
+/* err handler context pointer */
+PyObject *err_handler;
+/* math accuracy stored in context */
+PyObject *math_accuracy;
+
 /* Get the arg tuple to pass in the context argument to __array_wrap__ and
  * __array_prepare__.
  *
@@ -544,6 +549,14 @@ PyUFunc_GetPyValues(char *name, int *bufsize, int *errmask, PyObject **errobj)
     PyObject *ref = get_global_ext_obj();
 
     return _extract_pyvals(ref, name, bufsize, errmask, errobj);
+}
+
+NPY_NO_EXPORT int
+PyUFunc_GetAccuracy()
+{
+    PyObject *ref = ufunc_geterr(NULL, NULL);
+    PyObject *py_long = PyList_GET_ITEM(ref, 3);
+    return PyLong_AsLong(py_long);
 }
 
 /* Return the position of next non-white-space char in the string */
@@ -5065,55 +5078,27 @@ ufunc_generic_vectorcall(PyObject *ufunc,
             args, PyVectorcall_NARGS(len_args), kwnames, NPY_FALSE);
 }
 
-
 NPY_NO_EXPORT PyObject *
 ufunc_geterr(PyObject *NPY_UNUSED(dummy), PyObject *NPY_UNUSED(arg))
 {
-    PyObject *thedict;
-    PyObject *res;
-
-    thedict = PyThreadState_GetDict();
-    if (thedict == NULL) {
-        thedict = PyEval_GetBuiltins();
-    }
-    res = PyDict_GetItemWithError(thedict, npy_um_str_pyvals_name);
-    if (res == NULL && PyErr_Occurred()) {
+    PyObject *handler;
+    if (PyContextVar_Get(err_handler, NULL, &handler)) {
         return NULL;
     }
-    else if (res != NULL) {
-        Py_INCREF(res);
-        return res;
-    }
-    /* Construct list of defaults */
-    res = PyList_New(3);
-    if (res == NULL) {
-        return NULL;
-    }
-    PyList_SET_ITEM(res, 0, PyLong_FromLong(NPY_BUFSIZE));
-    PyList_SET_ITEM(res, 1, PyLong_FromLong(UFUNC_ERR_DEFAULT));
-    PyList_SET_ITEM(res, 2, Py_None); Py_INCREF(Py_None);
-    return res;
+    return handler;
 }
 
 
 NPY_NO_EXPORT PyObject *
-ufunc_seterr(PyObject *NPY_UNUSED(dummy), PyObject *arg)
+ufunc_seterr(PyObject *NPY_UNUSED(dummy), PyObject *handler)
 {
-    PyObject *thedict;
-    int res;
-    PyObject *val = arg;
-    static char *msg = "Error object must be a list of length 3";
+    static char *msg = "Error object must be a list of length 4";
 
-    if (!PyList_CheckExact(val) || PyList_GET_SIZE(val) != 3) {
+    if (!PyList_CheckExact(handler) || PyList_GET_SIZE(handler) != 4) {
         PyErr_SetString(PyExc_ValueError, msg);
         return NULL;
     }
-    thedict = PyThreadState_GetDict();
-    if (thedict == NULL) {
-        thedict = PyEval_GetBuiltins();
-    }
-    res = PyDict_SetItem(thedict, npy_um_str_pyvals_name, val);
-    if (res < 0) {
+    if (PyContextVar_Set(err_handler, handler) == NULL) {
         return NULL;
     }
 #if USE_USE_DEFAULTS==1
